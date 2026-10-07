@@ -47,6 +47,7 @@
     <div id="pwa-advanced-section" style="<?php echo $_['advancedMode'] === 'yes' ? 'display: block;' : 'display: none;'; ?> margin-top: 15px;">
         <p class="settings-hint" style="color: #e9322d;"><?php p($l->t('Warning: if the fields below contain code, they override the visual settings above.')); ?></p>
         <p class="settings-hint"><?php p($l->t('On pages of a Nextcloud app, "id" and "start_url" are set to that app (/apps/<app>/), so every app can be installed as a separate PWA.')); ?></p>
+        <p class="settings-hint"><?php p($l->t('Optional: an "apps" object with per-app overrides keyed by app id (e.g. "spreed" for Talk) is merged into the manifest of that app, e.g. "apps": { "spreed": { "name": "Talk", "icons": [...] } }.')); ?></p>
 
         <div class="pwa-field-group">
             <label for="pwa-custom-manifest"><?php p($l->t('Custom manifest JSON:')); ?></label>

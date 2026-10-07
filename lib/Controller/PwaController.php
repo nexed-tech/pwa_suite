@@ -127,8 +127,16 @@ class PwaController extends Controller {
      * With ?app=<appid> (added by Application.php based on the page) the manifest gets an
      * id and start_url of its own for that app, so every Nextcloud app is a separate PWA
      * instead of all of them collapsing into one.
+     *
+     * An optional "apps" object in the custom manifest holds per-app overrides keyed by
+     * app id, e.g. "apps": { "spreed": { "name": "Talk", "icons": [...] } }. The matching
+     * entry is merged into that app's manifest (everything except "id"); the "apps" key
+     * itself is never sent to the browser.
      */
     private function applyPageApp(array $manifest): array {
+        $overrides = isset($manifest['apps']) && is_array($manifest['apps']) ? $manifest['apps'] : [];
+        unset($manifest['apps']);
+
         $app = strtolower((string)$this->request->getParam('app', ''));
         if (!preg_match('/^[a-z0-9_]+$/', $app)) {
             return $manifest;
@@ -136,6 +144,12 @@ class PwaController extends Controller {
         $appUrl = '/apps/' . $app . '/';
         $manifest['id'] = $appUrl;
         $manifest['start_url'] = $appUrl;
+
+        if (isset($overrides[$app]) && is_array($overrides[$app])) {
+            $override = $overrides[$app];
+            unset($override['id']);
+            $manifest = array_replace($manifest, $override);
+        }
         return $manifest;
     }
 
