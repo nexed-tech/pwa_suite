@@ -14,7 +14,7 @@ class Application extends App {
 
         $uri = $_SERVER['REQUEST_URI'] ?? '';
 
-        // 1. Intercepción del Service Worker
+        // 1. Intercept the Service Worker
         if (preg_match('/service-worker\.js/i', $uri) || str_ends_with($uri, '/sw.js')) {
             /** @var PwaController $controller */
             $controller = $this->getContainer()->get(PwaController::class);
@@ -28,7 +28,7 @@ class Application extends App {
             exit;
         }
 
-        // 2. Intercepción de Manifest
+        // 2. Intercept the manifest
         if (
             str_contains($uri, 'theming/manifest') ||
             str_contains($uri, '/manifest.json') ||
@@ -45,14 +45,19 @@ class Application extends App {
             exit;
         }
 
-        // 3. Inyección en cabeceras HTML y carga del Service Worker
+        // 3. Inject into the HTML head and load the Service Worker
         if (!str_starts_with($uri, '/remote.php') && !str_starts_with($uri, '/ocs/')) {
             $container = $this->getContainer();
             
-            // Carga el script que registra el Service Worker
+            // Load the script that registers the Service Worker
             Util::addScript('pwa_suite', 'pwa-register');
 
-            ob_start(function (?string $buffer) use ($container) {
+            // The app this page belongs to (/apps/calendar/... or /login?redirect_url=/apps/calendar/...),
+            // so every Nextcloud app gets its own manifest (id/start_url) and can be installed
+            // as a separate PWA.
+            $pageApp = preg_match('#/apps/([a-z0-9_]+)#i', urldecode($uri), $m) ? strtolower($m[1]) : '';
+
+            ob_start(function (?string $buffer) use ($container, $pageApp) {
                 if ($buffer === null || $buffer === '' || !str_contains($buffer, '<html')) {
                     return $buffer;
                 }
@@ -60,6 +65,9 @@ class Application extends App {
                 /** @var IURLGenerator $urlGenerator */
                 $urlGenerator = $container->get(IURLGenerator::class);
                 $manifestUrl = $urlGenerator->linkToRoute('pwa_suite.pwa.getManifest');
+                if ($pageApp !== '') {
+                    $manifestUrl .= '?app=' . $pageApp;
+                }
 
                 $cleaned = preg_replace('/<link\s+[^>]*rel=["\']manifest["\'][^>]*>/i', '', $buffer);
                 return preg_replace(

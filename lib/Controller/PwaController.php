@@ -5,7 +5,8 @@ namespace OCA\PwaSuite\Controller;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
-use OCP\IConfig;
+use OCP\IAppConfig;
+use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\Files\IAppData;
 use OCP\AppFramework\Http\Attribute\PublicPage;
@@ -13,15 +14,17 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 
 class PwaController extends Controller {
 
-    private IConfig $config;
+    private IAppConfig $appConfig;
     private IAppData $appData;
     private IURLGenerator $urlGenerator;
+    private IL10N $l;
 
-    public function __construct(string $appName, IRequest $request, IConfig $config, IAppData $appData, IURLGenerator $urlGenerator) {
+    public function __construct(string $appName, IRequest $request, IAppConfig $appConfig, IAppData $appData, IURLGenerator $urlGenerator, IL10N $l) {
         parent::__construct($appName, $request);
-        $this->config = $config;
+        $this->appConfig = $appConfig;
         $this->appData = $appData;
         $this->urlGenerator = $urlGenerator;
+        $this->l = $l;
     }
 
     /**
@@ -31,7 +34,7 @@ class PwaController extends Controller {
     #[PublicPage]
     #[NoCSRFRequired]
     public function getIcon(): void {
-        $hasCustom = $this->config->getAppValue('pwa_suite', 'has_custom_icon', 'no');
+        $hasCustom = $this->appConfig->getValueString('pwa_suite', 'has_custom_icon', 'no');
 
         if ($hasCustom === 'yes') {
             try {
@@ -45,7 +48,7 @@ class PwaController extends Controller {
                 echo $content;
                 exit;
             } catch (\Exception $e) {
-                // Fallback automático si no se encuentra el archivo
+                // Automatic fallback if the file is missing
             }
         }
 
@@ -61,23 +64,23 @@ class PwaController extends Controller {
     #[PublicPage]
     #[NoCSRFRequired]
     public function getManifest(): DataResponse {
-        $advancedMode = $this->config->getAppValue('pwa_suite', 'advanced_mode', 'no');
-        $customManifest = $this->config->getAppValue('pwa_suite', 'custom_manifest', '');
+        $advancedMode = $this->appConfig->getValueString('pwa_suite', 'advanced_mode', 'no');
+        $customManifest = $this->appConfig->getValueString('pwa_suite', 'custom_manifest', '');
 
         if ($advancedMode === 'yes' && !empty(trim($customManifest))) {
             $decoded = json_decode($customManifest, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
-                $response = new DataResponse($decoded);
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                $response = new DataResponse($this->applyPageApp($decoded));
                 $response->addHeader('Content-Type', 'application/manifest+json; charset=utf-8');
                 return $response;
             }
         }
 
-        $appName = $this->config->getAppValue('pwa_suite', 'app_name', 'Nextcloud PWA');
-        $themeColor = $this->config->getAppValue('pwa_suite', 'theme_color', '#181818');
-        $bgColor = $this->config->getAppValue('pwa_suite', 'bg_color', '#181818');
-        $displayMode = $this->config->getAppValue('pwa_suite', 'display_mode', 'standalone');
-        $iconVersion = $this->config->getAppValue('pwa_suite', 'icon_version', '1');
+        $appName = $this->appConfig->getValueString('pwa_suite', 'app_name', 'Nextcloud PWA');
+        $themeColor = $this->appConfig->getValueString('pwa_suite', 'theme_color', '#181818');
+        $bgColor = $this->appConfig->getValueString('pwa_suite', 'bg_color', '#181818');
+        $displayMode = $this->appConfig->getValueString('pwa_suite', 'display_mode', 'standalone');
+        $iconVersion = $this->appConfig->getValueString('pwa_suite', 'icon_version', '1');
 
         $iconUrl = $this->urlGenerator->linkToRoute('pwa_suite.pwa.getIcon') . '?v=' . $iconVersion;
 
@@ -85,7 +88,7 @@ class PwaController extends Controller {
             'id' => 'nextcloud-custom-pwa',
             'name' => $appName,
             'short_name' => $appName,
-            'description' => $appName . ' - Entorno Unificado',
+            'description' => $this->l->t('%s - unified workspace', [$appName]),
             'start_url' => '/',
             'scope' => '/',
             'display' => $displayMode,
@@ -108,16 +111,32 @@ class PwaController extends Controller {
             ],
             'shortcuts' => [
                 [
-                    'name' => 'Archivos',
+                    'name' => $this->l->t('Files'),
                     'url' => '/apps/files/',
                     'icons' => [['src' => $iconUrl, 'sizes' => '512x512']]
                 ]
             ]
         ];
 
-        $response = new DataResponse($manifest);
+        $response = new DataResponse($this->applyPageApp($manifest));
         $response->addHeader('Content-Type', 'application/manifest+json; charset=utf-8');
         return $response;
+    }
+
+    /**
+     * With ?app=<appid> (added by Application.php based on the page) the manifest gets an
+     * id and start_url of its own for that app, so every Nextcloud app is a separate PWA
+     * instead of all of them collapsing into one.
+     */
+    private function applyPageApp(array $manifest): array {
+        $app = strtolower((string)$this->request->getParam('app', ''));
+        if (!preg_match('/^[a-z0-9_]+$/', $app)) {
+            return $manifest;
+        }
+        $appUrl = '/apps/' . $app . '/';
+        $manifest['id'] = $appUrl;
+        $manifest['start_url'] = $appUrl;
+        return $manifest;
     }
 
     /**
@@ -127,8 +146,8 @@ class PwaController extends Controller {
     #[PublicPage]
     #[NoCSRFRequired]
     public function getServiceWorker(): DataResponse {
-        $advancedMode = $this->config->getAppValue('pwa_suite', 'advanced_mode', 'no');
-        $customSw = $this->config->getAppValue('pwa_suite', 'custom_sw', '');
+        $advancedMode = $this->appConfig->getValueString('pwa_suite', 'advanced_mode', 'no');
+        $customSw = $this->appConfig->getValueString('pwa_suite', 'custom_sw', '');
 
         if ($advancedMode === 'yes' && !empty(trim($customSw))) {
             $response = new DataResponse($customSw);
@@ -137,15 +156,21 @@ class PwaController extends Controller {
             return $response;
         }
 
-        $rawAppName = $this->config->getAppValue('pwa_suite', 'app_name', 'Nextcloud PWA');
-        $rawThemeColor = $this->config->getAppValue('pwa_suite', 'theme_color', '#181818');
-        $rawBgColor = $this->config->getAppValue('pwa_suite', 'bg_color', '#181818');
+        $rawAppName = $this->appConfig->getValueString('pwa_suite', 'app_name', 'Nextcloud PWA');
+        $rawThemeColor = $this->appConfig->getValueString('pwa_suite', 'theme_color', '#181818');
+        $rawBgColor = $this->appConfig->getValueString('pwa_suite', 'bg_color', '#181818');
 
-        // Escapado para literales JavaScript
+        // Escaped for JavaScript string literals
         $appNameJs = addslashes($rawAppName);
+        $viewJs = addslashes($this->l->t('View'));
 
-        // Sanitización para inyección segura en HTML y CSS de la página offline
-        $appNameHtml = htmlspecialchars($rawAppName, ENT_QUOTES, 'UTF-8');
+        // Sanitized for safe injection into the offline page's HTML/CSS (which sits inside a JS template literal)
+        $html = static fn (string $text): string => str_replace(['`', '$', '\\'], ['&#96;', '&#36;', '&#92;'], htmlspecialchars($text, ENT_QUOTES, 'UTF-8'));
+        $appNameHtml = $html($rawAppName);
+        $langHtml = $html($this->l->getLanguageCode());
+        $offlineTitleHtml = $html($this->l->t('%s offline', [$rawAppName]));
+        $offlineTextHtml = $html($this->l->t('No connection to the server.'));
+        $retryHtml = $html($this->l->t('Retry'));
         $themeColor = preg_match('/^#[a-fA-F0-9]{3,8}$/', $rawThemeColor) ? $rawThemeColor : '#181818';
         $bgColor = preg_match('/^#[a-fA-F0-9]{3,8}$/', $rawBgColor) ? $rawBgColor : '#181818';
 
@@ -158,10 +183,10 @@ self.addEventListener('fetch', (e) => {
         e.respondWith(
             fetch(e.request).catch(() => new Response(`
                 <!DOCTYPE html>
-                <html lang="es">
+                <html lang="{$langHtml}">
                 <head>
                     <meta charset="UTF-8">
-                    <title>{$appNameHtml} Offline</title>
+                    <title>{$offlineTitleHtml}</title>
                     <style>
                         body { background:{$bgColor}; color:#fff; font-family:system-ui; display:flex; height:100vh; align-items:center; justify-content:center; margin:0; text-align:center; }
                         .c { background:#222; padding:2rem; border-radius:12px; max-width:380px; }
@@ -172,8 +197,8 @@ self.addEventListener('fetch', (e) => {
                 <body>
                     <div class="c">
                         <h1>{$appNameHtml}</h1>
-                        <p>Sin conexión con el servidor.</p>
-                        <button onclick="location.reload()">Reintentar</button>
+                        <p>{$offlineTextHtml}</p>
+                        <button onclick="location.reload()">{$retryHtml}</button>
                     </div>
                 </body>
                 </html>
@@ -228,13 +253,13 @@ self.addEventListener('push', (e) => {
         }
     }
 
-    // Validación de origen para evitar URLs externas arbitrarias en el payload
+    // Origin check to block arbitrary external URLs in the payload
     const rawTargetObj = new URL(rawUrl, self.location.origin);
     const resolvedUrl = (rawTargetObj.origin === self.location.origin) ? rawTargetObj.href : self.location.origin;
 
     const mappedActions = actionsList.map((act, index) => ({
         action: act.action || ('action_' + index),
-        title: act.title || 'Ver',
+        title: act.title || '{$viewJs}',
         icon: act.icon || undefined
     }));
 
@@ -271,7 +296,7 @@ self.addEventListener('notificationclick', (e) => {
         }
     }
 
-    // Blindaje contra Open Redirect / Tab Hijacking: solo navega dentro del mismo dominio
+    // Guard against open redirect / tab hijacking: only navigate within the same origin
     const targetObj = new URL(targetUrl, self.location.origin);
     const resolvedTarget = (targetObj.origin === self.location.origin) ? targetObj.href : self.location.origin;
 

@@ -13,30 +13,30 @@ jobs:
       contents: write
 
     steps:
-      - name: Checkout del código
+      - name: Checkout code
         uses: actions/checkout@v7
         with:
           path: pwa_suite
 
-      - name: Empaquetar y firmar la App
+      - name: Package and sign the app
         env:
           PRIVATE_KEY: ${{ secrets.NC_PRIVATE_KEY }}
         run: |
           mkdir -p build/artifacts
           
-          # 1. Empaquetar la carpeta excluyendo archivos de Git y workflows
+          # 1. Package the folder, excluding Git files and workflows
           tar --exclude='pwa_suite/.git*' --exclude='pwa_suite/.github' -czf build/artifacts/pwa_suite.tar.gz pwa_suite
           
-          # 2. Guardar temporalmente la clave privada para firmar
+          # 2. Temporarily store the private signing key
           echo "$PRIVATE_KEY" > key.pem
           
-          # 3. Firmar el archivo comprimido y guardar la firma en un archivo de texto
+          # 3. Sign the archive and save the signature to a text file
           openssl dgst -sha512 -sign key.pem build/artifacts/pwa_suite.tar.gz | openssl base64 > build/artifacts/pwa_suite.sig
           
-          # 4. Eliminar la clave temporal por seguridad
+          # 4. Remove the temporary key for safety
           rm -f key.pem
 
-      - name: Publicar Release en GitHub
+      - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
         with:
           files: |

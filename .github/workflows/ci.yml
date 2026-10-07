@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        nc-version: ['34-apache', 'latest']
+        nc-version: ['34-apache', '35-apache', 'latest']
 
     steps:
       - name: Checkout app code
@@ -54,15 +54,15 @@ jobs:
             -v ${{ github.workspace }}/pwa_suite:/var/www/html/custom_apps/pwa_suite \
             nextcloud:${{ matrix.nc-version }}
           
-          echo "Esperando inicialización completa del servidor web..."
+          echo "Waiting for the web server to finish starting..."
           for i in {1..30}; do
             if curl -s -f http://localhost:8080/status.php > /dev/null 2>&1; then
-              echo "Nextcloud listo en $i intentos."
+              echo "Nextcloud ready after $i attempts."
               break
             fi
             sleep 2
             if [ "$i" -eq 30 ]; then
-              echo "Error: Tiempo de espera agotado para el inicio de Nextcloud."
+              echo "Error: timed out waiting for Nextcloud to start."
               docker logs nc-test
               exit 1
             fi
@@ -101,10 +101,10 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: '✅ **Test superado:** `pwa_suite` se instaló y habilitó correctamente en **Nextcloud ${{ matrix.nc-version }}**.'
+                body: '✅ **Test passed:** `pwa_suite` installed and enabled successfully on **Nextcloud ${{ matrix.nc-version }}**.'
               });
             } catch (err) {
-              console.log('No se pudo comentar en el PR (posiblemente un fork externo o bot):', err.message);
+              console.log('Could not comment on the PR (possibly an external fork or bot):', err.message);
             }
 
       - name: Report Failure with Logs to PR
@@ -114,14 +114,14 @@ jobs:
           script: |
             try {
               const fs = require('fs');
-              let logContent = 'No se pudieron extraer logs adicionales del contenedor.';
+              let logContent = 'Could not extract additional logs from the container.';
               
               if (fs.existsSync('/tmp/nc_error.log')) {
                 logContent = fs.readFileSync('/tmp/nc_error.log', 'utf8');
               }
 
-              const body = `❌ **Test fallido en Nextcloud ${{ matrix.nc-version }}**\n\n` +
-                `<details>\n<summary>🔍 <b>Haz clic aquí para ver los logs del error</b></summary>\n\n` +
+              const body = `❌ **Test failed on Nextcloud ${{ matrix.nc-version }}**\n\n` +
+                `<details>\n<summary>🔍 <b>Click here to see the error logs</b></summary>\n\n` +
                 `\`\`\`text\n${logContent}\n\`\`\`\n` +
                 `</details>`;
 
@@ -132,5 +132,5 @@ jobs:
                 body: body
               });
             } catch (err) {
-              console.log('No se pudo comentar en el PR (posiblemente un fork externo o bot):', err.message);
+              console.log('Could not comment on the PR (possibly an external fork or bot):', err.message);
             }

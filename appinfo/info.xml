@@ -2,15 +2,16 @@
 <info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
     <id>pwa_suite</id>
     <name>PWA Suite &amp; Customizer</name>
-    <summary>Personalizador y gestor de PWA para Nextcloud</summary>
+    <summary>PWA customizer and manager for Nextcloud</summary>
     <description><![CDATA[
-    PWA Suite te permite personalizar por completo la experiencia de Progressive Web App (PWA) en tu instancia de Nextcloud:
-    
-    - Configuración personalizada del archivo manifest.json (nombre, iconos, colores de tema y fondo).
-    - Registro y control de Service Worker personalizado.
-    - Optimización de la experiencia de instalación en dispositivos móviles y de escritorio.
+    PWA Suite lets you fully customize the Progressive Web App (PWA) experience of your Nextcloud instance:
+
+    - Custom manifest.json configuration (name, icons, theme and background colors).
+    - Every Nextcloud app gets its own manifest id, so each app can be installed as a separate PWA.
+    - Custom Service Worker registration and control.
+    - Optimized install experience on mobile and desktop devices.
     ]]></description>
-    <version>1.1.1</version>
+    <version>1.2.0</version>
     <licence>agpl</licence>
     <author>Manuel Bernal Carvajal</author>
     <namespace>PwaSuite</namespace>
@@ -18,10 +19,10 @@
     <website>https://github.com/manuelbernalcarvajal/pwa_suite</website>
     <bugs>https://github.com/manuelbernalcarvajal/pwa_suite/issues</bugs>
     <repository type="git">https://github.com/manuelbernalcarvajal/pwa_suite.git</repository>
-    
+
     <dependencies>
         <php min-version="8.0" />
-        <nextcloud min-version="34" max-version="34" />
+        <nextcloud min-version="34" max-version="35" />
     </dependencies>
 
     <settings>
