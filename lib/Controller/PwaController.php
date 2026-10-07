@@ -3,6 +3,8 @@
 namespace OCA\PwaSuite\Controller;
 
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\AppFramework\Http\DataResponse;
 use OCP\IRequest;
 use OCP\IAppConfig;
@@ -121,6 +123,54 @@ class PwaController extends Controller {
         $response = new DataResponse($this->applyPageApp($manifest, $app));
         $response->addHeader('Content-Type', 'application/manifest+json; charset=utf-8');
         return $response;
+    }
+
+    /**
+     * Public install page for one app: an empty page that only links that app's manifest.
+     *
+     * Browsers that install apps from a URL by policy (Chrome/Edge WebAppInstallForceList)
+     * load that URL in the background, usually before anyone has logged in. An app page such
+     * as /apps/calendar/ then redirects to the login, so the browser sees no manifest and
+     * creates a placeholder app (no title bar overlay, an id based on the URL). This page
+     * needs no login, so the install always gets the real manifest. Users never see it: the
+     * installed app opens at the manifest's start_url.
+     *
+     * @NoCSRFRequired
+     * @PublicPage
+     */
+    #[PublicPage]
+    #[NoCSRFRequired]
+    public function getInstallPage(string $app): DataDisplayResponse {
+        $app = strtolower($app);
+        if ($app === 'core' || !preg_match('/^[a-z0-9_]+$/', $app)) {
+            return new DataDisplayResponse('Unknown app', Http::STATUS_NOT_FOUND, ['Content-Type' => 'text/plain; charset=utf-8']);
+        }
+
+        $manifestUrl = $this->urlGenerator->linkToRoute('pwa_suite.pwa.getManifest') . '?app=' . $app;
+        $appUrl = $this->urlGenerator->getWebroot() . '/apps/' . $app . '/';
+        $name = htmlspecialchars($this->appName($app), ENT_QUOTES, 'UTF-8');
+        $html = '<!DOCTYPE html>
+<html lang="' . htmlspecialchars($this->l->getLanguageCode(), ENT_QUOTES, 'UTF-8') . '">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>' . $name . '</title>
+    <link rel="manifest" href="' . htmlspecialchars($manifestUrl, ENT_QUOTES, 'UTF-8') . '">
+</head>
+<body>
+    <p><a href="' . htmlspecialchars($appUrl, ENT_QUOTES, 'UTF-8') . '">' . $name . '</a></p>
+</body>
+</html>
+';
+        $response = new DataDisplayResponse($html, Http::STATUS_OK, ['Content-Type' => 'text/html; charset=utf-8']);
+        $response->cacheFor(0);
+        return $response;
+    }
+
+    /** The app's name from its manifest (per-app override or the main name). */
+    private function appName(string $app): string {
+        $manifest = $this->getManifest($app)->getData();
+        return is_array($manifest) && is_string($manifest['name'] ?? null) ? $manifest['name'] : $app;
     }
 
     /**

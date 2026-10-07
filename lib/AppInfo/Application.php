@@ -50,7 +50,8 @@ class Application extends App {
         }
 
         // 3. Inject into the HTML head and load the Service Worker
-        if (!str_starts_with($uri, '/remote.php') && !str_starts_with($uri, '/ocs/')) {
+        // (not on the install page, which already links the manifest of the app it installs)
+        if (!str_starts_with($uri, '/remote.php') && !str_starts_with($uri, '/ocs/') && !str_contains($uri, '/apps/pwa_suite/install/')) {
             $container = $this->getContainer();
             
             // Load the script that registers the Service Worker

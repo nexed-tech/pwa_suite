@@ -11,7 +11,7 @@
     - Custom Service Worker registration and control.
     - Optimized install experience on mobile and desktop devices.
     ]]></description>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
     <licence>agpl</licence>
     <author>Manuel Bernal Carvajal</author>
     <namespace>PwaSuite</namespace>
