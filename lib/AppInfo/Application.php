@@ -36,7 +36,11 @@ class Application extends App {
         ) {
             /** @var PwaController $controller */
             $controller = $this->getContainer()->get(PwaController::class);
-            $response = $controller->getManifest();
+            // Nextcloud's own manifest URL carries the app id (/apps/theming/manifest/<appid>).
+            // Pages often still link that URL, so take the app from it to keep per-app manifests
+            // working even when the <link> rewrite below doesn't apply.
+            $manifestApp = preg_match('#/theming/manifest/([a-z0-9_]+)#i', $uri, $m) ? $m[1] : '';
+            $response = $controller->getManifest($manifestApp);
 
             header('Content-Type: application/manifest+json; charset=utf-8');
             header('Cache-Control: no-cache, no-store, must-revalidate');

@@ -63,14 +63,14 @@ class PwaController extends Controller {
      */
     #[PublicPage]
     #[NoCSRFRequired]
-    public function getManifest(): DataResponse {
+    public function getManifest(string $app = ''): DataResponse {
         $advancedMode = $this->appConfig->getValueString('pwa_suite', 'advanced_mode', 'no');
         $customManifest = $this->appConfig->getValueString('pwa_suite', 'custom_manifest', '');
 
         if ($advancedMode === 'yes' && !empty(trim($customManifest))) {
             $decoded = json_decode($customManifest, true);
             if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-                $response = new DataResponse($this->applyPageApp($decoded));
+                $response = new DataResponse($this->applyPageApp($decoded, $app));
                 $response->addHeader('Content-Type', 'application/manifest+json; charset=utf-8');
                 return $response;
             }
@@ -118,19 +118,20 @@ class PwaController extends Controller {
             ]
         ];
 
-        $response = new DataResponse($this->applyPageApp($manifest));
+        $response = new DataResponse($this->applyPageApp($manifest, $app));
         $response->addHeader('Content-Type', 'application/manifest+json; charset=utf-8');
         return $response;
     }
 
     /**
-     * With ?app=<appid> (added by Application.php based on the page) the manifest gets an
-     * id and start_url of its own for that app, so every Nextcloud app is a separate PWA
-     * instead of all of them collapsing into one.
+     * For an app id the manifest gets an id and start_url of its own for that app, so every
+     * Nextcloud app is a separate PWA instead of all of them collapsing into one. The app id
+     * comes from ?app=<appid> (added by Application.php based on the page) or from the core
+     * theming URL /apps/theming/manifest/<appid> that Application.php intercepts.
      */
-    private function applyPageApp(array $manifest): array {
-        $app = strtolower((string)$this->request->getParam('app', ''));
-        if (!preg_match('/^[a-z0-9_]+$/', $app)) {
+    private function applyPageApp(array $manifest, string $app = ''): array {
+        $app = strtolower($app !== '' ? $app : (string)$this->request->getParam('app', ''));
+        if ($app === 'core' || !preg_match('/^[a-z0-9_]+$/', $app)) {
             return $manifest;
         }
         $appUrl = '/apps/' . $app . '/';
